@@ -1,7 +1,28 @@
 language: node_js
 node_js:
-  - "6"
-  - "8"
-  - "10"
-services:
-  - redis
+  - 6
+  - 8
+  - 10
+  - 12
+sudo: false
+cache:
+  npm: true
+  apt: true
+  directories:
+    - $HOME/.redis
+addons:
+  apt:
+    packages:
+      - gcc
+install:
+  - npm install
+  - curl -o $HOME/.redis/redis-stable.tar.gz http://download.redis.io/redis-stable.tar.gz
+  - pushd $HOME/.redis
+  - tar xvzf redis-stable.tar.gz
+  - cd redis-stable
+  - make -j4
+  - src/redis-server --port 6379 --daemonize yes
+  - cd utils/create-cluster
+  - ./create-cluster start
+  - echo yes | ./create-cluster create
+  - popd
