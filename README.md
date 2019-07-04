@@ -21,12 +21,36 @@ Example
 
 ```js
 var redis = require('mqemitter-redis')
+
+// redis standalone
 var mq = redis({
   port: 12345,
   host: '12.34.56.78',
   password: 'my secret',
   db: 4
 })
+/*
+// redis cluster
+var mq = redis({
+  cluster: {
+    nodes: [     // it is 1st parameter for Redis.Cluster
+      {
+        port: 12345,
+        host: '12.34.56.78',
+        db: 4
+      }
+    ],   
+    options: {   // it is 2nd parameter for Redis.Cluster
+      redisOptions: {
+        password: 'my secret',
+        tls: {}
+      },
+      dnsLookup: (address, callback) => callback(null, address),
+      showFriendlyErrorStack: true
+    }
+  }
+})
+*/
 var msg = {
   topic: 'hello world',
   payload: 'or any other fields'

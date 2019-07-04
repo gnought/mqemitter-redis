@@ -7,6 +7,7 @@ var inherits = require('inherits')
 var LRU = require('lru-cache')
 var msgpack = require('msgpack-lite')
 var EE = require('events').EventEmitter
+var assert = require('assert')
 
 function MQEmitterRedis (opts) {
   if (!(this instanceof MQEmitterRedis)) {
@@ -16,12 +17,22 @@ function MQEmitterRedis (opts) {
   opts = opts || {}
   this._opts = opts
 
-  this.subConn = new Redis(opts)
-  this.pubConn = new Redis(opts)
+  var cluster = opts.cluster
+  if (cluster && !Object.is(cluster, {})) {
+    let nodes = cluster.nodes || []
+    let clusterOptions = cluster.options || {}
+    assert(nodes.length > 0, 'No Startup Nodes in cluster-enabled redis')
+    this.subConn = new Redis.Cluster(nodes, clusterOptions)
+    this.pubConn = new Redis.Cluster(nodes, clusterOptions)
+  } else {
+    this.subConn = new Redis(opts)
+    this.pubConn = new Redis(opts)
+  }
 
+  this._id = hyperid()
   this._topics = {}
 
-  this._cache = LRU({
+  this._cache = new LRU({
     max: 10000,
     maxAge: 60 * 1000 // one minute
   })
@@ -73,21 +84,37 @@ inherits(MQEmitterRedis, MQEmitter)
   MQEmitterRedis.prototype['_' + name] = MQEmitterRedis.prototype[name]
 })
 
-MQEmitterRedis.prototype.close = function (cb) {
-  var count = 2
+MQEmitterRedis.prototype.close = function (done) {
   var that = this
 
-  function onEnd () {
-    if (--count === 0) {
-      that._close(cb)
+  var subConnEnd = false
+  var pubConnEnd = false
+
+  var cleanup = function () {
+    if (subConnEnd && pubConnEnd) {
+      that._topics = {}
+      that._matcher.clear()
+      that._cache.prune()
+      that._close(done || nop)
     }
   }
 
-  this.subConn.on('end', onEnd)
-  this.subConn.quit()
+  var handleClose = function () {
+    that.subConn.quit(() => { that.subConn.disconnect(); subConnEnd = true; cleanup() })
+    that.pubConn.quit(() => { that.pubConn.disconnect(); pubConnEnd = true; cleanup() })
+  }
 
-  this.pubConn.on('end', onEnd)
-  this.pubConn.quit()
+  if (that.subConn.status === 'ready') {
+    var sep = that._opts.separator
+    var topic = '$SYS' + sep + that._subTopic(that._id).replace(sep, '') + sep + 'redis' + sep + 'close'
+    this.on(topic, () => {
+      handleClose()
+    }, () => {
+      this.emit({ topic: topic, payload: 1 })
+    })
+  } else {
+    handleClose()
+  }
 
   return this
 }
@@ -117,9 +144,9 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
   this._topics[subTopic] = 1
 
   if (this._containsWildcard(topic)) {
-    this.subConn.psubscribe(subTopic, onFinish)
+    this.subConn.psubscribe(subTopic, onFinish).catch(() => {})
   } else {
-    this.subConn.subscribe(subTopic, onFinish)
+    this.subConn.subscribe(subTopic, onFinish).catch(() => {})
   }
 
   return this
@@ -127,18 +154,23 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
 
 MQEmitterRedis.prototype.emit = function (msg, done) {
   if (this.closed) {
-    return done(new Error('mqemitter-redis is closed'))
+    if (done) {
+      return done(new Error('mqemitter-redis is closed'))
+    }
   }
 
+  var onFinish = function () {
+    if (done) {
+      setImmediate(done)
+    }
+  }
   var packet = {
     id: hyperid(),
     msg: msg
   }
-
-  this.pubConn.publish(msg.topic, msgpack.encode(packet))
-  if (done) {
-    setImmediate(done)
-  }
+  this.pubConn.ping(() => {
+    this.pubConn.publish(msg.topic, msgpack.encode(packet), onFinish).catch(() => {})
+  })
 }
 
 MQEmitterRedis.prototype.removeListener = function (topic, cb, done) {
@@ -171,5 +203,7 @@ MQEmitterRedis.prototype._containsWildcard = function (topic) {
   return (topic.indexOf(this._opts.wildcardOne) >= 0) ||
          (topic.indexOf(this._opts.wildcardSome) >= 0)
 }
+
+function nop () {}
 
 module.exports = MQEmitterRedis
