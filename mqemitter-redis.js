@@ -110,7 +110,9 @@ MQEmitterRedis.prototype.close = function (done) {
     this.on(topic, () => {
       handleClose()
     }, () => {
-      this.emit({ topic: topic, payload: 1 })
+      setImmediate(() => {
+        this.emit({ topic: topic, payload: 1 })
+      })
     })
   } else {
     handleClose()
