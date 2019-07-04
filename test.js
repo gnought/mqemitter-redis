@@ -23,7 +23,7 @@ runTests((opts) => {
 }, true)
 
 function runTests (builder, isCluster) {
-  require('../mqemitter/abstractTest.js')({
+  require('mqemitter/abstractTest.js')({
     builder: builder,
     isCluster: isCluster || false,
     test: test
