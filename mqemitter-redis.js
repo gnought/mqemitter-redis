@@ -100,11 +100,13 @@ MQEmitterRedis.prototype.close = function (done) {
   }
 
   var handleClose = function () {
-    that.subConn.quit(() => { that.subConn.disconnect(); subConnEnd = true; cleanup() })
-    that.pubConn.quit(() => { that.pubConn.disconnect(); pubConnEnd = true; cleanup() })
+    that.pubConn.quit(() => {
+      that.pubConn.disconnect(); pubConnEnd = true; cleanup()
+      that.subConn.quit(() => { that.subConn.disconnect(); subConnEnd = true; cleanup() })
+    })
   }
 
-  if (that.subConn.status === 'ready') {
+  if (that.pubConn.status === 'ready') {
     var sep = that._opts.separator
     var topic = '$SYS' + sep + that._subTopic(that._id).replace(sep, '') + sep + 'redis' + sep + 'close'
     this.on(topic, () => {
