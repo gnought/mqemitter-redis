@@ -62,6 +62,10 @@ function MQEmitterRedis (opts) {
   })
 
   this.subConn.on('error', function (err) {
+    if (err.code === 'EPIPE') {
+      // safe ignore EPIPE https://github.com/luin/ioredis/issues/768
+      return
+    }
     that.state.emit('error', err)
   })
 
