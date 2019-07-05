@@ -96,10 +96,10 @@ function buildTests (opts) {
       if (e1SubscribeOk && e2SubscribeOk) {
         e1.removeListener('hello', noop, () => {
           e2.emit({ topic: 'hello' }, function () {
+            e2.close()
             e1.close(function () {
               t.end()
             })
-            e2.close(function () {})
           })
         })
       }
