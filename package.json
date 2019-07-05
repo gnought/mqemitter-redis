@@ -19,7 +19,7 @@
     "tape": "^4.11.0"
   },
   "scripts": {
-    "test": "standard && tape test.js | faucet"
+    "test": "tape test.js"
   },
   "pre-commit": "test",
   "repository": {

@@ -119,9 +119,10 @@ MQEmitterRedis.prototype.close = function (done) {
     // that.pubConn.removeListener(topic, handleClose)
     that.removeListener(topic, handleClose)
     while (that.pending > 0) {
+      console.log(that.pending)
       sleep(1000)
     }
-    // console.log('handleClose')
+    console.log('handleClose')
     that.pubConn.disconnect(false)
     that.subConn.disconnect(false)
     // that.pubConn.quit(() => { pubConnEnd = true; })
@@ -140,7 +141,7 @@ MQEmitterRedis.prototype.close = function (done) {
   //     setTimeout(handleClose, 1000)
   //   })
   // }
-
+  console.log(that.pending)
   var sep = that._opts.separator
   var topic = '$SYS' + sep + that._subTopic(that._id).replace(that._opts.regexSep, '') + sep + 'redis' + sep + 'close'
   // that.pubConn.ping(() => { process.nextTick(() => { pubConnEnd = true; that.pubConn.disconnect(false); that.pubConn.quit(cleanup) }) })
