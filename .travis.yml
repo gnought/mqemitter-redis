@@ -25,4 +25,5 @@ install:
   - cd utils/create-cluster
   - ./create-cluster start
   - echo yes | ./create-cluster create
+  - sleep 5
   - popd
