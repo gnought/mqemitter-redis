@@ -96,9 +96,9 @@ MQEmitterRedis.prototype.close = function (done) {
 
   var cleanup = function () {
     if (subConnEnd && pubConnEnd) {
-      that._topics = {}
-      that._matcher.clear()
-      that._cache.prune()
+      // that._topics = {}
+      // that._matcher.clear()
+      // that._cache.prune()
       that._close(done || nop)
     }
   }
@@ -133,7 +133,7 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
   var subTopic = this._subTopic(topic)
   var onFinish = function () {
     if (done) {
-      process.nextTick(() => { setImmediate(done) })
+      setImmediate(done)
     }
   }
 
@@ -165,7 +165,7 @@ MQEmitterRedis.prototype.emit = function (msg, done) {
 
   var onFinish = function () {
     if (done) {
-      process.nextTick(() => { setImmediate(done) })
+      setImmediate(done)
     }
   }
   var packet = {
@@ -179,7 +179,7 @@ MQEmitterRedis.prototype.removeListener = function (topic, cb, done) {
   var subTopic = this._subTopic(topic)
   var onFinish = function () {
     if (done) {
-      process.nextTick(() => { setImmediate(done) })
+      setImmediate(done)
     }
   }
 
