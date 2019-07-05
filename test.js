@@ -13,7 +13,8 @@ runTests((opts) => {
           db: 0
         }],
         options: {
-          showFriendlyErrorStack: true
+          showFriendlyErrorStack: true,
+          scaleReads: 'slave'
         }
       }
     },
