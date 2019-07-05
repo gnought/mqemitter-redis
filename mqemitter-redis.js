@@ -96,9 +96,9 @@ MQEmitterRedis.prototype.close = function (done) {
 
   var cleanup = function () {
     if (subConnEnd && pubConnEnd) {
-      // that._topics = {}
-      // that._matcher.clear()
-      // that._cache.prune()
+      that._topics = {}
+      that._matcher.clear()
+      that._cache.prune()
       that._close(done || nop)
     }
   }
