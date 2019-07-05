@@ -118,7 +118,7 @@ MQEmitterRedis.prototype.close = function (done) {
   var handleClose = function () {
     // that.pubConn.removeListener(topic, handleClose)
     that.removeListener(topic, handleClose)
-    while (that.pending > 0 && that.subConn.status === 'ready') {
+    while (that.pending > 0) {
       sleep(1000)
     }
     // console.log('handleClose')
