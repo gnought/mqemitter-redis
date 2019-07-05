@@ -106,7 +106,9 @@ MQEmitterRedis.prototype.close = function (done) {
   var handleClose = function () {
     that.pubConn.quit(() => {
       that.pubConn.disconnect(); pubConnEnd = true; cleanup()
-      that.subConn.quit(() => { that.subConn.disconnect(); subConnEnd = true; cleanup() })
+      process.nextTick(() => {
+        that.subConn.quit(() => { that.subConn.disconnect(); subConnEnd = true; cleanup() })
+      })
     })
   }
 
