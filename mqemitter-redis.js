@@ -133,7 +133,7 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
   var subTopic = this._subTopic(topic)
   var onFinish = function () {
     if (done) {
-      setImmediate(done)
+      process.nextTick(() => { setImmediate(done) })
     }
   }
 
@@ -148,9 +148,9 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
   this._topics[subTopic] = 1
 
   if (this._containsWildcard(topic)) {
-    this.subConn.psubscribe(subTopic, onFinish).catch(() => {})
+    this.subConn.psubscribe(subTopic, onFinish)
   } else {
-    this.subConn.subscribe(subTopic, onFinish).catch(() => {})
+    this.subConn.subscribe(subTopic, onFinish)
   }
 
   return this
@@ -165,23 +165,21 @@ MQEmitterRedis.prototype.emit = function (msg, done) {
 
   var onFinish = function () {
     if (done) {
-      setImmediate(done)
+      process.nextTick(() => { setImmediate(done) })
     }
   }
   var packet = {
     id: hyperid(),
     msg: msg
   }
-  // this.pubConn.ping(() => {
-  this.pubConn.publish(msg.topic, msgpack.encode(packet), onFinish).catch(() => {})
-  // })
+  this.pubConn.publish(msg.topic, msgpack.encode(packet), onFinish)
 }
 
 MQEmitterRedis.prototype.removeListener = function (topic, cb, done) {
   var subTopic = this._subTopic(topic)
   var onFinish = function () {
     if (done) {
-      setImmediate(done)
+      process.nextTick(() => { setImmediate(done) })
     }
   }
 
