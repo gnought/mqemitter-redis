@@ -26,7 +26,7 @@ function MQEmitterRedis (opts) {
     this.pubConn = new Redis.Cluster(nodes, clusterOptions)
   } else {
     this.subConn = new Redis(opts)
-    this.pubConn = new Redis(opts)
+    this.pubConn = this.subConn.duplicate()
   }
 
   this._id = hyperid()
@@ -104,12 +104,8 @@ MQEmitterRedis.prototype.close = function (done) {
   }
 
   var handleClose = function () {
-    that.pubConn.quit(() => {
-      that.pubConn.disconnect(); pubConnEnd = true; cleanup()
-      process.nextTick(() => {
-        that.subConn.quit(() => { that.subConn.disconnect(); subConnEnd = true; cleanup() })
-      })
-    })
+    that.pubConn.quit(() => { that.pubConn.disconnect(false); pubConnEnd = true; cleanup() })
+    that.subConn.quit(() => { that.subConn.disconnect(false); subConnEnd = true; cleanup() })
   }
 
   if (that.pubConn.status === 'ready') {
@@ -145,7 +141,7 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
 
   if (this._topics[subTopic]) {
     this._topics[subTopic]++
-    this.subConn.ping(onFinish)
+    onFinish()
     return this
   }
 
@@ -176,9 +172,9 @@ MQEmitterRedis.prototype.emit = function (msg, done) {
     id: hyperid(),
     msg: msg
   }
-  this.pubConn.ping(() => {
-    this.pubConn.publish(msg.topic, msgpack.encode(packet), onFinish).catch(() => {})
-  })
+  // this.pubConn.ping(() => {
+  this.pubConn.publish(msg.topic, msgpack.encode(packet), onFinish).catch(() => {})
+  // })
 }
 
 MQEmitterRedis.prototype.removeListener = function (topic, cb, done) {
