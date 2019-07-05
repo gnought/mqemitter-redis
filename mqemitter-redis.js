@@ -90,7 +90,7 @@ function MQEmitterRedis (opts) {
   this._opts.regexWildcardOne = new RegExp(this._opts.wildcardOne.replace(/([/,!\\^${}[\]().*+?|<>\-&])/g, '\\$&'), 'g')
   this._opts.regexSep = new RegExp(this._opts.separator, 'g')
   this.pending = 0
-  // this.concurrency = 1
+  this.concurrency = 0
 }
 
 inherits(MQEmitterRedis, MQEmitter)
@@ -118,7 +118,7 @@ MQEmitterRedis.prototype.close = function (done) {
   var handleClose = function () {
     // that.pubConn.removeListener(topic, handleClose)
     that.removeListener(topic, handleClose)
-    while (that.pending > 0) {
+    while (that.pending > 0 && that.subConn.status === 'ready') {
       sleep(1000)
     }
     // console.log('handleClose')
