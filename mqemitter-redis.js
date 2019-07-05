@@ -143,7 +143,7 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
 
   if (this._topics[subTopic]) {
     this._topics[subTopic]++
-    onFinish()
+    this.subConn.ping(onFinish)
     return this
   }
 
