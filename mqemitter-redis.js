@@ -104,8 +104,10 @@ MQEmitterRedis.prototype.close = function (done) {
   }
 
   var handleClose = function () {
-    that.pubConn.quit(() => { that.pubConn.disconnect(false); pubConnEnd = true; cleanup() })
-    that.subConn.quit(() => { that.subConn.disconnect(false); subConnEnd = true; cleanup() })
+    process.nextTick(() => {
+      that.pubConn.quit(() => { that.pubConn.disconnect(false); pubConnEnd = true; cleanup() })
+      that.subConn.quit(() => { that.subConn.disconnect(false); subConnEnd = true; cleanup() })
+    })
   }
 
   if (that.pubConn.status === 'ready') {
