@@ -44,7 +44,7 @@ function buildTests (opts) {
     })
   })
 
-  test('multiple mqemitter-redis for one redis', function (t) {
+  test('multiple mqemitter-redis can share a redis', function (t) {
     t.plan(2)
 
     var e1 = builder()
@@ -57,6 +57,7 @@ function buildTests (opts) {
     }, () => { count++ ; newEvent() })
     e2.on('hello', function (message, cb) {
       t.ok(message, 'message received')
+      e2.close()
       cb()
     }, () => { count++ ; newEvent() })
 
@@ -64,9 +65,6 @@ function buildTests (opts) {
       if (count === 2) {
         e1.emit({ topic: 'hello' }, function () {
           e1.close()
-          e2.close(function () {
-            t.end()
-          })
         })
       }
     }
@@ -81,7 +79,7 @@ function buildTests (opts) {
 
     e1.on('hello', noop, () => { count++; newEvent() })
     e1.subConn.on('message', function (topic, message) {
-      if (topic.substr(0, 5) !== '$SYS/') {
+      if (topic) {
         t.fail('the message should not be emitted')
       }
     })
@@ -131,9 +129,9 @@ function buildTests (opts) {
   test('ioredis error event', function (t) {
     var e = isCluster ? builder({ cluster: { nodes: ['127'] } }) : builder({ host: '127' })
 
-    t.plan(2)
+    t.plan(1)
 
-    e.state.on('error', function (err) {
+    e.state.once('error', function (err) {
       if (isCluster) {
         t.deepEqual(err.message, 'Failed to refresh slots cache.')
       } else {
