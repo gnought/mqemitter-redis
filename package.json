@@ -4,6 +4,8 @@
   "description": "Redis-based MQEmitter",
   "main": "mqemitter-redis.js",
   "dependencies": {
+    "denque": "^1.4.1",
+    "fastq": "^1.6.0",
     "hyperid": "^2.0.2",
     "inherits": "^2.0.4",
     "ioredis": "^4.11.1",
@@ -14,7 +16,7 @@
   "devDependencies": {
     "faucet": "^0.0.1",
     "pre-commit": "^1.2.2",
-    "safe-buffer": "^5.1.2",
+    "safe-buffer": "^5.2.0",
     "standard": "^12.0.1",
     "tape": "^4.11.0"
   },

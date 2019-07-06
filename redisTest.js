@@ -30,13 +30,14 @@ function buildTests (opts) {
 
     var e = builder()
 
-    e.on('👌😎', function (message, cb) {
+    var notBeCalled = function (message, cb) {
       t.fail('the message should not be emitted')
       cb()
-    })
+    }
+    e.on('👌😎', notBeCalled)
     e.emit({ topic: '👌😎' }, noop)
     t.equal(Object.keys(e._topics).length, 1, 'should be 1')
-    e.removeListener('👌😎', noop)
+    e.removeListener('👌😎', notBeCalled)
     t.equal(Object.keys(e._topics).length, 0, 'should be 0')
     e.close(function () {
       t.end()
@@ -48,26 +49,24 @@ function buildTests (opts) {
 
     var e1 = builder()
     var e2 = builder()
-
-    var e1SubscribeOk = false
-    var e2SubscribeOk = false
+    var count = 0
 
     e1.on('hello', function (message, cb) {
       t.ok(message, 'message received')
       cb()
-    }, () => { e1SubscribeOk = true; newEvent() })
+    }, () => { count++ ; newEvent() })
     e2.on('hello', function (message, cb) {
       t.ok(message, 'message received')
       cb()
-    }, () => { e2SubscribeOk = true; newEvent() })
+    }, () => { count++ ; newEvent() })
 
     function newEvent () {
-      if (e1SubscribeOk && e2SubscribeOk) {
+      if (count === 2) {
         e1.emit({ topic: 'hello' }, function () {
-          e1.close(function () {
+          e1.close()
+          e2.close(function () {
             t.end()
           })
-          e2.close(function () {})
         })
       }
     }
@@ -78,11 +77,9 @@ function buildTests (opts) {
 
     var e1 = builder()
     var e2 = builder()
+    var count = 0
 
-    var e1SubscribeOk = false
-    var e2SubscribeOk = false
-
-    e1.on('hello', noop, () => { e1SubscribeOk = true; newEvent() })
+    e1.on('hello', noop, () => { count++; newEvent() })
     e1.subConn.on('message', function (topic, message) {
       if (topic.substr(0, 5) !== '$SYS/') {
         t.fail('the message should not be emitted')
@@ -91,9 +88,9 @@ function buildTests (opts) {
     e2.on('hello', function (message, cb) {
       t.ok(message, 'message received')
       cb()
-    }, () => { e2SubscribeOk = true; newEvent() })
+    }, () => { count++; newEvent() })
     function newEvent () {
-      if (e1SubscribeOk && e2SubscribeOk) {
+      if (count === 2) {
         e1.removeListener('hello', noop, () => {
           e2.emit({ topic: 'hello' }, function () {
             e2.close()
@@ -134,9 +131,9 @@ function buildTests (opts) {
   test('ioredis error event', function (t) {
     var e = isCluster ? builder({ cluster: { nodes: ['127'] } }) : builder({ host: '127' })
 
-    t.plan(1)
+    t.plan(2)
 
-    e.state.once('error', function (err) {
+    e.state.on('error', function (err) {
       if (isCluster) {
         t.deepEqual(err.message, 'Failed to refresh slots cache.')
       } else {
