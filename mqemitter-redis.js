@@ -216,7 +216,7 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
   var onFinish = nop
 
   if (done) {
-    assert('function' === typeof done)
+    // assert('function' === typeof done)
     onFinish = function () {
       console.log('sub done')
       setImmediate(done)
@@ -367,12 +367,14 @@ MQEmitterRedis.prototype.removeListener = function (topic, cb, done) {
   var subTopic = this._subTopic(topic)
   var onFinish = function () {
     if (done) {
-      // setImmediate(done)
-      that._queue.push((cb) => { cb() }, done)
+      console.log('remove listener done')
+      setImmediate(done)
+      // that._queue.push((cb) => { cb() }, done)
     }
   }
 
   // this.pending -= this._matcher.match(topic).length
+  console.log('remove listener')
 
   this._removeListener(topic, cb)
 
