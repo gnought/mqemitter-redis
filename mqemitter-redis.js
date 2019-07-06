@@ -55,24 +55,33 @@ function MQEmitterRedis (opts) {
     if (that.closed) return
     if (packet.id === 'callback') {
       console.log('callback', packet.msg.payload)
-      return that.state.emit(packet.msg.payload)
+      that.state.emit(packet.msg.payload)
+      return
     }
+    // if (that._cb[packet.msg.topic]) {
+    //   that._cb[packet.msg.topic]--
+    // }
+    // if (that._cb[packet.msg.topic] == 0)
     if (!that._matcher.match(packet.msg.topic)) {
       console.log('not found')
       return
     }
+    console.log('msg', packet.msg)
     if (!that._cache.get(packet.id)) {
+      console.log('msg - real emit', packet.msg)
       that._emit(packet.msg)
     }
+    console.log('msg cache')
     that._cache.set(packet.id, true)
-    console.log('msg', packet.msg)
   }
 
   this.subConn.on('messageBuffer', function (topic, message) {
+    console.log('messageBuffer',  msgpack.decode(message))
     handler(topic, topic, message)
   })
 
   this.subConn.on('pmessageBuffer', function (sub, topic, message) {
+    console.log('pmessageBuffer',  msgpack.decode(message))
     handler(sub, topic, message)
   })
 
@@ -105,7 +114,10 @@ function MQEmitterRedis (opts) {
   // this.pending = 0
 
   this._queue = fastq(function (task, cb) { task(cb || nop) }, 1)
-  this._cb = new Denque()
+  // this._cb = new Denque()
+  this._cb = {}
+  this._cbdeferqueue = fastq(function (task, cb) { task(cb || nop) }, 1)
+  this._cbdeferqueue.pause()
   // this._queue.pause()
   // this.subConn.once('ready', that._queue.resume)
 }
@@ -125,15 +137,13 @@ MQEmitterRedis.prototype.close = function (done) {
       console.log('closed')
       var cleanup = function () {
         if (!that.closed) {
-
           Object.keys(that._topics).forEach(function (t) {
             that.removeListener(t, nop)
           })
-
           that._topics = {}
           that._matcher.clear()
           that._cache.prune()
-          that._cb.clear()
+          // that._cb.clear()
           that._close(cb)
         }
       }
@@ -164,8 +174,8 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
     assert('function' === typeof done)
     onFinish = function () {
       console.log('sub done')
-      setImmediate(done)
-      // done()
+      // setImmediate(done)
+      done()
     }
   }
   var subTopic = this._subTopic(topic)
@@ -191,13 +201,13 @@ MQEmitterRedis.prototype.on = function on (topic, cb, done) {
 
   if (this._containsWildcard(topic)) {
     // if (done) {
-      this._queue.push((cb) => { that.subConn.psubscribe(subTopic, cb) }, onFinish)
+      this._queue.push((cb) => { that.subConn.psubscribe(subTopic, cb).catch(nop) }, onFinish)
     // } else {
     //   this.subConn.psubscribe(subTopic)
     // }
   } else {
     // if (done) {
-      this._queue.push((cb) => { that.subConn.subscribe(subTopic, cb) }, onFinish)
+      this._queue.push((cb) => { that.subConn.subscribe(subTopic, cb).catch(nop) }, onFinish)
     // } else {
     //   this.subConn.subscribe(subTopic)
     // }
@@ -223,7 +233,7 @@ MQEmitterRedis.prototype.emit = function (msg, done) {
       setImmediate(done)
     }
     if (that._matcher.match(msg.topic).length === 0 ) {
-      return this._queue.push((cb) => { that.pubConn.publish(msg.topic, msgpack.encode(packet), cb) }, onFinish)
+      return this._queue.push((cb) => { that.pubConn.publish(msg.topic, msgpack.encode(packet), cb).catch(nop) }, onFinish)
     }
     var event = 'callback_' + packet.id
     // console.log(that._id)
@@ -232,19 +242,32 @@ MQEmitterRedis.prototype.emit = function (msg, done) {
       msg: { topic: msg.topic, payload: event }
     }
     console.log('event', event)
+    // var expectedNotify = that._matcher.match(msg.topic).length
+    // that._cb[event] = that._matcher.match(msg.topic).length
     this.state.once(event, () => {
       console.log('capture')
-      that._cb.pop(event)
+      // that._cb.pop(event)
+      // delete that._cb[event]
       setImmediate(done)
     })
-    this._cb.push(event)
+    // this._cb.push(event)
+    // this._queue.push((cb) => { that.pubConn.publish(msg.topic, msgpack.encode(packet), cb) }, nop )
     this._queue.push((cb) => {
-      that.pubConn.publish(msg.topic, msgpack.encode(packet), () => {
-        that.pubConn.publish(msg.topic, msgpack.encode(cbPacket), cb) })
-      }
-    , nop)
+      that.pubConn.publish(msg.topic, msgpack.encode(packet), cb).catch(nop)
+    }, () => { setImmediate(() => { that.pubConn.publish(msg.topic, msgpack.encode(cbPacket)).catch(nop) })})
+
+    // a hack, deplay a bit, and let ioredis does a job
+    // otherwise, the pubish callback goes first before any subscription messages in message/pmessage listener
+    // this._queue.push((cb) => { setTimeout(cb, 20) }, nop)
+    // this._queue.push((cb) => { that.pubConn.publish(msg.topic, msgpack.encode(cbPacket), cb) }, nop)
+
+    // this._queue.push((cb) => {
+    //   that.pubConn.publish(msg.topic, msgpack.encode(packet), () => {
+    //     that.pubConn.publish(msg.topic, msgpack.encode(cbPacket), cb)
+    //   }, nop)
+    // })
   } else {
-    return this._queue.push((cb) => { that.pubConn.publish(msg.topic, msgpack.encode(packet), cb) }, nop)
+    return this._queue.push((cb) => { that.pubConn.publish(msg.topic, msgpack.encode(packet), cb).catch(nop) }, nop)
   }
 
 
@@ -321,9 +344,9 @@ MQEmitterRedis.prototype.removeListener = function (topic, cb, done) {
   var that = this
 
   if (this._containsWildcard(topic)) {
-    this._queue.push((cb) => { that.subConn.punsubscribe(subTopic, cb) }, onFinish)
+    this._queue.push((cb) => { that.subConn.punsubscribe(subTopic, cb).catch(nop) }, onFinish)
   } else {
-    this._queue.push((cb) => { that.subConn.unsubscribe(subTopic, cb) }, onFinish)
+    this._queue.push((cb) => { that.subConn.unsubscribe(subTopic, cb).catch(nop) }, onFinish)
   }
 
   return this
