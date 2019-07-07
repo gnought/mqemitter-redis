@@ -54,12 +54,12 @@ function buildTests (opts) {
     e1.on('hello', function (message, cb) {
       t.ok(message, 'message received')
       cb()
-    }, () => { count++ ; newEvent() })
+    }, () => { count++; newEvent() })
     e2.on('hello', function (message, cb) {
       t.ok(message, 'message received')
       e2.close()
       cb()
-    }, () => { count++ ; newEvent() })
+    }, () => { count++; newEvent() })
 
     function newEvent () {
       if (count === 2) {
