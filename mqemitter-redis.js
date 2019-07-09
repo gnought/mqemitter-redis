@@ -73,7 +73,7 @@ function MQEmitterRedis (opts) {
         debug('handle', cb.matcher)
         cb.matcher = []
         that._willConsume.del(packet.id)
-        // emulate that._emit(packet.msg, cb), we need to define our matcher
+        // we need to define our matcher, emulate that._emit(packet.msg, cb),
         that.current++
         that._parallel(that, m, packet.msg, cb.callback)
       }
@@ -163,29 +163,37 @@ MQEmitterRedis.prototype.close = function (done) {
   if (that.closed) {
     return
   }
-  that._close(done || nop)
-  that._matcher.clear()
+  var closing = function () {
+    that._close(done || nop)
+    that._matcher.clear()
 
-  this._queue.push((cb) => {
-    process.nextTick(() => {
-      debug('closed')
+    that._queue.push((cb) => {
+      process.nextTick(() => {
+        debug('closed')
 
-      that._cache.reset()
-      // this._cb.clear()
-      this._willConsume.reset()
-      // Object.keys(that._topics).forEach(function (t) {
-      //   that.removeListener(t, nop)
-      // })
-      // that._topics = {}
+        that._cache.reset()
+        // this._cb.clear()
+        that._willConsume.reset()
+        // Object.keys(that._topics).forEach(function (t) {
+        //   that.removeListener(t, nop)
+        // })
+        // that._topics = {}
 
-      that.pubConn.disconnect(false)
-      that.subConn.disconnect(false)
-      that.subConn.quit(cb).catch(nop)
-      that.pubConn.quit(cb).catch(nop)
+        that.pubConn.disconnect(false)
+        that.subConn.disconnect(false)
+        that.subConn.quit(cb).catch(nop)
+        that.pubConn.quit(cb).catch(nop)
 
-      that._queue.killAndDrain()
-    })
-  }, nop)
+        that._queue.killAndDrain()
+      })
+    }, nop)
+  }
+  if (that._willConsume.length > 0) {
+    // defer a bit if we haven't received any notifications from redis
+    setTimeout(closing, 200)
+  } else {
+    closing()
+  }
 
   return this
 }

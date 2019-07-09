@@ -56,13 +56,13 @@ function buildTests (opts) {
       cb()
     })
     e.emit({ topic: 'hello', payload: 'foo' }, function () {
-      setTimeout(() => {
-        e.close(function () {
-          t.equal(count1, 2)
-          t.equal(count2, 3)
-          t.end()
-        })
-      }, 200)
+      // setTimeout(() => {
+      e.close(function () {
+        t.equal(count1, 2)
+        t.equal(count2, 3)
+        t.end()
+      })
+      // }, 200)
     })
   })
 
@@ -71,20 +71,20 @@ function buildTests (opts) {
 
     var e = builder()
     var count = 0
-    var beCalled = function (message, cb) {
+    var notBeCalled = function (message, cb) {
       count++
       cb()
     }
     var topic = 'hello/world'
-    e.on('hello/+', beCalled)
-    e.removeListener('hello/+', beCalled)
+    e.on('hello/+', notBeCalled)
+    e.removeListener('hello/+', notBeCalled)
     e.emit({ topic: topic }, () => {
-      setTimeout(() => {
-        e.close(function () {
-          t.equal(count, 0)
-          t.end()
-        })
-      }, 200)
+      // setTimeout(() => {
+      e.close(function () {
+        t.equal(count, 0)
+        t.end()
+      })
+      // }, 200)
     })
   })
 
@@ -107,12 +107,12 @@ function buildTests (opts) {
     e.emit({ topic: topic }, noop)
     e.removeListener(topic, beCalled1)
     e.emit({ topic: topic }, () => {
-      setTimeout(() => {
-        e.close(function () {
-          t.equal(count, 3)
-          t.end()
-        })
-      }, 200)
+      // setTimeout(() => {
+      e.close(function () {
+        t.equal(count, 3)
+        t.end()
+      })
+      // }, 200)
     })
   })
 
@@ -135,12 +135,12 @@ function buildTests (opts) {
     e.emit({ topic: topic }, noop)
     e.removeListener('hello/+', beCalled1)
     e.emit({ topic: topic }, () => {
-      setTimeout(() => {
-        e.close(function () {
-          t.equal(count, 3)
-          t.end()
-        })
-      }, 200)
+      // setTimeout(() => {
+      e.close(function () {
+        t.equal(count, 3)
+        t.end()
+      })
+      // }, 200)
     })
   })
 
