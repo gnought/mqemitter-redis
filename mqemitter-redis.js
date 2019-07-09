@@ -190,7 +190,7 @@ MQEmitterRedis.prototype.close = function (done) {
   }
   if (that._willConsume.length > 0) {
     // defer a bit if we haven't received any notifications from redis
-    setTimeout(closing, 200)
+    setTimeout(closing, 100)
   } else {
     closing()
   }
