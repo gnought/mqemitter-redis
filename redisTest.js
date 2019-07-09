@@ -56,12 +56,13 @@ function buildTests (opts) {
       cb()
     })
     e.emit({ topic: 'hello', payload: 'foo' }, function () {
-      console.log('second emit callback')
-      t.equal(count1, 2)
-      t.equal(count2, 3)
-      e.close(function () {
-        t.end()
-      })
+      setTimeout(() => {
+        e.close(function () {
+          t.equal(count1, 2)
+          t.equal(count2, 3)
+          t.end()
+        })
+      }, 200)
     })
   })
 
@@ -78,14 +79,16 @@ function buildTests (opts) {
     e.on('hello/+', beCalled)
     e.removeListener('hello/+', beCalled)
     e.emit({ topic: topic }, () => {
-      t.equal(count, 0)
-      e.close(function () {
-        t.end()
-      })
+      setTimeout(() => {
+        e.close(function () {
+          t.equal(count, 0)
+          t.end()
+        })
+      }, 200)
     })
   })
 
-  test('ioredis removelistener for multiple subscriptions', function (t) {
+  test('ioredis removelistener in multiple subscriptions', function (t) {
     t.plan(1)
 
     var e = builder()
@@ -104,14 +107,16 @@ function buildTests (opts) {
     e.emit({ topic: topic }, noop)
     e.removeListener(topic, beCalled1)
     e.emit({ topic: topic }, () => {
-      t.equal(count, 3)
-      e.close(function () {
-        t.end()
-      })
+      setTimeout(() => {
+        e.close(function () {
+          t.equal(count, 3)
+          t.end()
+        })
+      }, 200)
     })
   })
 
-  test('ioredis removelistener wildcard topic for multiple subscriptions', function (t) {
+  test('ioredis removelistener wildcard topic in multiple subscriptions', function (t) {
     t.plan(1)
 
     var e = builder()
@@ -130,10 +135,12 @@ function buildTests (opts) {
     e.emit({ topic: topic }, noop)
     e.removeListener('hello/+', beCalled1)
     e.emit({ topic: topic }, () => {
-      t.equal(count, 3)
-      e.close(function () {
-        t.end()
-      })
+      setTimeout(() => {
+        e.close(function () {
+          t.equal(count, 3)
+          t.end()
+        })
+      }, 200)
     })
   })
 
