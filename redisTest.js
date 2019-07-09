@@ -11,9 +11,7 @@ function buildTests (opts) {
     var e = builder()
 
     e.subConn.on('message', function (topic, message) {
-      if (topic.substr(0, 5) !== '$SYS/') {
-        t.fail('the message should not be emitted')
-      }
+      t.fail('the message should not be emitted')
     })
 
     e.on('hello', noop)
@@ -25,8 +23,122 @@ function buildTests (opts) {
     })
   })
 
-  test('topic is in Unicode', function (t) {
-    t.plan(2)
+  test('same as mqemitter behaviour', function (t) {
+    var e = builder()
+    var count1 = 0
+    var count2 = 0
+    e.on('hello', function (message, cb) {
+      if (message.payload === 'world') {
+        count1++
+      }
+      if (message.payload === 'foo') {
+        count2++
+      }
+      cb()
+    })
+    e.on('hello', function (message, cb) {
+      if (message.payload === 'world') {
+        count1++
+      }
+      if (message.payload === 'foo') {
+        count2++
+      }
+      cb()
+    })
+    e.emit({ topic: 'hello', payload: 'world' }, noop)
+    e.on('hello', function (message, cb) {
+      if (message.payload === 'world') {
+        count1++
+      }
+      if (message.payload === 'foo') {
+        count2++
+      }
+      cb()
+    })
+    e.emit({ topic: 'hello', payload: 'foo' }, function () {
+      console.log('second emit callback')
+      t.equal(count1, 2)
+      t.equal(count2, 3)
+      e.close(function () {
+        t.end()
+      })
+    })
+  })
+
+  test('ioredis removelistener', function (t) {
+    t.plan(1)
+
+    var e = builder()
+    var count = 0
+    var beCalled = function (message, cb) {
+      count++
+      cb()
+    }
+    var topic = 'hello/world'
+    e.on('hello/+', beCalled)
+    e.removeListener('hello/+', beCalled)
+    e.emit({ topic: topic }, () => {
+      t.equal(count, 0)
+      e.close(function () {
+        t.end()
+      })
+    })
+  })
+
+  test('ioredis removelistener for multiple subscriptions', function (t) {
+    t.plan(1)
+
+    var e = builder()
+    var count = 0
+    var beCalled1 = function (message, cb) {
+      count++
+      cb()
+    }
+    var beCalled2 = function (message, cb) {
+      count++
+      cb()
+    }
+    var topic = 'hello'
+    e.on(topic, beCalled1)
+    e.on(topic, beCalled2)
+    e.emit({ topic: topic }, noop)
+    e.removeListener(topic, beCalled1)
+    e.emit({ topic: topic }, () => {
+      t.equal(count, 3)
+      e.close(function () {
+        t.end()
+      })
+    })
+  })
+
+  test('ioredis removelistener wildcard topic for multiple subscriptions', function (t) {
+    t.plan(1)
+
+    var e = builder()
+    var count = 0
+    var beCalled1 = function (message, cb) {
+      count++
+      cb()
+    }
+    var beCalled2 = function (message, cb) {
+      count++
+      cb()
+    }
+    var topic = 'hello/world'
+    e.on('hello/+', beCalled1)
+    e.on('hello/+', beCalled2)
+    e.emit({ topic: topic }, noop)
+    e.removeListener('hello/+', beCalled1)
+    e.emit({ topic: topic }, () => {
+      t.equal(count, 3)
+      e.close(function () {
+        t.end()
+      })
+    })
+  })
+
+  test('removelistener a right one', function (t) {
+    t.plan(3)
 
     var e = builder()
 
@@ -34,72 +146,111 @@ function buildTests (opts) {
       t.fail('the message should not be emitted')
       cb()
     }
-    e.on('👌😎', notBeCalled)
-    e.emit({ topic: '👌😎' }, noop)
-    t.equal(Object.keys(e._topics).length, 1, 'should be 1')
-    e.removeListener('👌😎', notBeCalled)
-    t.equal(Object.keys(e._topics).length, 0, 'should be 0')
-    e.close(function () {
-      t.end()
+    var beCalled = function (message, cb) {
+      t.ok('message received')
+      cb()
+    }
+    var topic = 'hello'
+    e.on(topic, notBeCalled)
+    e.on(topic, beCalled)
+    t.equal(e._matcher.match(topic).length, 2, 'should be 2')
+    e.removeListener(topic, notBeCalled)
+    t.equal(e._matcher.match(topic).length, 1, 'should be 1')
+    e.emit({ topic: topic }, () => {
+      e.close(function () {
+        t.end()
+      })
     })
   })
 
-  test('multiple mqemitter-redis can share a redis', function (t) {
-    t.plan(2)
+  test('topic is in Unicode', function (t) {
+    t.plan(3)
 
-    var e1 = builder()
-    var e2 = builder()
-    var count = 0
+    var e = builder()
 
-    e1.on('hello', function (message, cb) {
-      t.ok(message, 'message received')
+    var topic = '👌😎'
+    var notBeCalled = function (message, cb) {
+      t.ok('message received')
+      t.equal(message.topic, topic)
+      t.equal(message.payload, topic)
       cb()
-    }, () => { count++; newEvent() })
-    e2.on('hello', function (message, cb) {
-      t.ok(message, 'message received')
-      e2.close()
-      cb()
-    }, () => { count++; newEvent() })
-
-    function newEvent () {
-      if (count === 2) {
-        e1.emit({ topic: 'hello' }, function () {
-          e1.close()
-        })
-      }
     }
+    e.on(topic, notBeCalled)
+    e.emit({ topic: topic, payload: topic }, () => {
+      e.close(function () {
+        t.end()
+      })
+    })
   })
 
-  test('unsubscribe one in multiple mqemitter-redis for one redis', function (t) {
+  test('double close', function (t) {
     t.plan(1)
 
-    var e1 = builder()
-    var e2 = builder()
-    var count = 0
-
-    e1.on('hello', noop, () => { count++; newEvent() })
-    e1.subConn.on('message', function (topic, message) {
-      if (topic) {
-        t.fail('the message should not be emitted')
-      }
+    var e = builder()
+    e.close()
+    e.close(() => {
+      t.fail('should not reach here')
     })
-    e2.on('hello', function (message, cb) {
-      t.ok(message, 'message received')
-      cb()
-    }, () => { count++; newEvent() })
-    function newEvent () {
-      if (count === 2) {
-        e1.removeListener('hello', noop, () => {
-          e2.emit({ topic: 'hello' }, function () {
-            e2.close()
-            e1.close(function () {
-              t.end()
-            })
-          })
-        })
-      }
-    }
+    t.ok(e.closed)
+    t.end()
   })
+
+  // test('multiple mqemitter-redis can share a redis', function (t) {
+  //   t.plan(2)
+
+  //   var e1 = builder()
+  //   var e2 = builder()
+  //   var count = 0
+
+  //   e1.on('hello', function (message, cb) {
+  //     t.ok(message, 'message received')
+  //     cb()
+  //   }, () => { count++; newEvent() })
+  //   e2.on('hello', function (message, cb) {
+  //     t.ok(message, 'message received')
+  //     e2.close()
+  //     cb()
+  //   }, () => { count++; newEvent() })
+
+  //   function newEvent () {
+  //     if (count === 2) {
+  //       e1.emit({ topic: 'hello' }, function () {
+  //         e1.close()
+  //       })
+  //     }
+  //   }
+  // })
+
+  // test('unsubscribe one in multiple mqemitter-redis in a shared redis', function (t) {
+  //   t.plan(1)
+
+  //   var e1 = builder()
+  //   var e2 = builder()
+  //   var count = 0
+
+  //   e1.on('hello', noop, () => { count++; newEvent() })
+  //   e1.subConn.on('message', function (topic, message) {
+  //     if (topic) {
+  //       t.fail('the message should not be emitted')
+  //     }
+  //   })
+  //   e2.on('hello', function (message, cb) {
+  //     t.ok(message, 'message received')
+  //     cb()
+  //   }, () => { count++; newEvent() })
+  //   function newEvent () {
+  //     if (count === 2) {
+  //       e1.removeListener('hello', noop, () => {
+  //         e2.emit({ topic: 'hello' }, function () {
+  //           e2.close()
+  //           e1.close(function () {
+  //             t.end()
+  //           })
+  //         })
+  //       })
+  //     }
+  //   }
+  // })
 
   test('ioredis connect event', function (t) {
     var e = builder()
